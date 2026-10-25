@@ -1,0 +1,142 @@
+---
+title: "Reporte de Ventas - Desk"
+format:
+  html:
+    embed-resources: true
+echo: false
+editor: visual
+warning: false
+message: false
+---
+
+## La demanda de escritorios en EE. UU. muestra fluctuaciones estacionales notables, con picos máximos al comienzo del año y fases de estabilización a lo largo de los meses.
+
+```{r}
+
+#| echo: false
+#| message: false
+#| warning: false
+
+library(tidyverse)
+library(tidyr)
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(plotly)
+
+datos <- read_xlsx("Product-Sales-Region.xlsx")
+
+datos_desk <- datos |> 
+  filter(grepl("desk", Product, ignore.case = TRUE))
+
+ventas_por_mes <- datos_desk |> 
+  mutate(Mes = floor_date(as.Date(Date), "month")) |> 
+  group_by(Mes) |> 
+  summarise(numero_ventas = n())
+
+
+
+
+p <- ggplot(ventas_por_mes, aes(x = Mes, y = numero_ventas)) +
+  # Añadimos un área sombreada debajo de la línea para darle profundidad y estilo
+  geom_area(fill = "#3b82f6", alpha = 0.15) +
+  # Línea principal con un azul moderno y elegante
+  geom_line(colour = "#2563eb", linewidth = 1.2) +
+  # Puntos bien definidos
+  geom_point(colour = "#1d4ed8", size = 2.5) +
+  theme_minimal(base_size = 12) +
+  labs(
+    title = "Ventas de Escritorios en E.E.U.U.",
+    subtitle = "Evolución mensual (2023 - 2025)",
+    x = "Mes",
+    y = "Número de Ventas"
+  ) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, color = "#1e293b"),
+    plot.subtitle = element_text(size = 11, color = "#64748b"),
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    panel.grid.minor = element_blank() # Limpiamos líneas de cuadrícula innecesarias
+  )
+
+# 2. Convertimos el gráfico en interactivo
+ggplotly(p, tooltip = c("x", "y"))
+
+```
+
+```{r}
+ventas_por_producto <- datos |> 
+  group_by(Product) |> 
+  summarise(Total_Unidades = sum(Quantity, na.rm = TRUE))
+
+# 3. Crear el gráfico de barras ordenado
+ggplot(ventas_por_producto, aes(x = reorder(Product, -Total_Unidades), y = Total_Unidades, fill = Product)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(aes(label = Total_Unidades), vjust = -0.5, size = 3.5, fontface = "bold") +
+  scale_fill_brewer(palette = "Set2") + # Paleta de colores atractiva
+  theme_minimal() +
+  labs(
+    title = "Total de unidades vendidas por producto",
+    subtitle = "Volumen de ventas acumulado",
+    x = "Producto",
+    y = "Unidades Vendidas"
+  ) +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    axis.text.x = element_text(angle = 30, hjust = 1)
+  )
+```
+
+## Alice encabeza el rendimiento general del período, registrando el mayor volumen total de ventas y destacándose por encima del resto del equipo.
+
+```{r}
+# 1. Cargar datos y calcular la suma total de unidades por vendedor
+ventas_por_vendedor <- datos |> 
+  group_by(Salesperson) |> 
+  summarise(Total_Ventas = sum(Quantity, na.rm = TRUE)) |> 
+  arrange(desc(Total_Ventas))
+
+# 2. Marcar al mejor vendedor de forma segura
+ventas_por_vendedor <- ventas_por_vendedor |> 
+  mutate(Destacado = if_else(row_number() == 1, "Top Vendedor", "Resto"))
+
+# 3. Crear el gráfico sin etiquetas numéricas
+ggplot(ventas_por_vendedor, aes(x = reorder(Salesperson, Total_Ventas), y = Total_Ventas, fill = Destacado)) +
+  geom_col() +
+  # (Se eliminó la línea geom_text para que no aparezcan los números)
+  scale_fill_manual(values = c("Top Vendedor" = "#e74c3c", "Resto" = "#bdc3c7")) +
+  coord_flip() +
+  theme_minimal() +
+  labs(
+    title = "Rendimiento por Vendedor",
+    subtitle = "Destacando al mejor vendedor del período",
+    x = "Vendedor",
+    y = "Total de Ventas"
+  ) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(face = "bold", size = 14)
+  )
+```
+
+```{r}
+library(DT)
+
+# 1. Cargar los datos
+datos <- read_xlsx("Product-Sales-Region.xlsx")
+
+# 2. Mostrar tabla interactiva con botones de exportación
+datatable(
+  datos,
+  extensions = 'Buttons', # Habilita la extensión de botones
+  options = list(
+    dom = 'Bfrtip',       # Define la posición de los botones ('B' activa la barra de botones)
+    buttons = c('copy', 'csv', 'excel', 'pdf', 'print'), # Tipos de exportación disponibles
+    pageLength = 10,       # Filas por página
+    scrollX = TRUE,        # Barra de desplazamiento horizontal
+    language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json') # En español
+  ),
+  filter = 'top',          # Permite filtrar por cada columna
+  class = 'display compact hover'
+)
+```
